@@ -1,0 +1,85 @@
+networks:
+  dns:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.23.0.0/24
+
+services:
+  unbound:
+    image: klutchell/unbound:latest
+    container_name: unbound
+    restart: unless-stopped
+    networks:
+      dns:
+        ipv4_address: 172.23.0.2
+    expose:
+      - "5035/tcp"
+      - "5035/udp"
+    volumes:
+      - ./unbound:/opt/unbound/etc/unbound
+    healthcheck:
+      test: ["CMD", "drill", "@127.0.0.1", "-p", "5035", "cloudflare.com", "A"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+
+  pihole:
+    image: pihole/pihole:latest
+    container_name: pihole
+    restart: unless-stopped
+    network_mode: "host"
+    depends_on:
+      coredns-omada:
+        condition: service_started
+    environment:
+      TZ: "Europe/Berlin"
+      FTLCONF_WEBSERVER_API_PASSWORD: "<piholePassword>"
+      FTLCONF_DNS_LISTENINGMODE: "all"
+      FTLCONF_DNS_UPSTREAMS: "172.23.0.2#5035"
+      FTLCONF_DNS_DNSSEC: "false"
+    volumes:
+      - ./pihole/etc-pihole:/etc/pihole
+      - ./pihole/etc-dnsmasq.d:/etc/dnsmasq.d
+    healthcheck:
+      test: ["CMD", "dig", "+short", "@127.0.0.1", "google.com"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+  radvd:
+    image: alpine:3
+    container_name: radvd
+    network_mode: host
+    cap_add: [ "NET_ADMIN" ]
+    restart: unless-stopped
+    volumes:
+      - ./radvd:/config:ro
+    command: >
+      sh -c "apk add --no-cache radvd &&
+             mkdir -p /run/radvd &&
+             exec radvd -n -p /run/radvd/radvd.pid -C /config/radvd.conf -d 5"
+  dhcpv6:
+    image: alpine:3
+    container_name: dhcpv6
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+    restart: unless-stopped
+    volumes:
+      - ./dnsmasq/dnsmasq.conf:/etc/dnsmasq.conf:ro
+    command: >
+      sh -c "apk add --no-cache dnsmasq &&
+             exec dnsmasq -k --conf-file=/etc/dnsmasq.conf --log-facility=-"
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    # Täglich 03:00, nur gelabelte Container, alte Images entfernen
+    command: --label-enable --cleanup --rolling-restart --schedule "0 0 3 * * *"
