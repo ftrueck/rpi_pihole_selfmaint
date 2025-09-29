@@ -1,0 +1,18 @@
+. {
+    health :8080
+    omada {
+        controller_url {$OMADA_URL}
+        site {$OMADA_SITE}
+        username {$OMADA_USERNAME}
+        password {$OMADA_PASSWORD}
+        refresh_minutes 1
+        ignore_startup_errors {$OMADA_IGNORE_STARTUP_ERRORS}
+    }
+    forward . {$UPSTREAM_DNS} {
+      prefer_udp
+      health_check 5s
+    }
+    cache 30
+    log
+    errors
+}
