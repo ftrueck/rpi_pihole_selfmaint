@@ -15,9 +15,14 @@ The strange part was it could not be diagnosed nor did I find a plausible reason
 - Repeatable and stable setup (can be replicated in minutes)
 - Fire and Forget
 
+## Features
+- A very fast DNS resolver locally run in your network
+- Ad blocking based on DNS
+- ipV6 ready (radvd and DNSmasq advertise the pihole as a DNS server in your network)
+
 ## Setup
 - setup a RPI(4/5) with ubuntu core
-- configure its network to a static address
+- configure its network to a static address (make sure to also set the ipV6 address from the docker-compose.yml to your network interface if you want ipV6)
 - sudo snap install docker
 - create a directory where you want to have your files stored
 - create the subdirectories and the config files I have prepared
